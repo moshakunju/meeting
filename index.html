@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SBS Board Meeting Room</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --accent: #7c3aed;
+      --bg: linear-gradient(180deg,#f8fafc, #eef2ff);
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #6b7280;
+      --radius: 14px;
+      --shadow: 0 10px 30px rgba(15,23,42,0.08);
+      font-family: Inter, 'Segoe UI', Roboto, system-ui, -apple-system, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+    header{padding:18px 28px;background:linear-gradient(90deg,var(--primary),var(--accent));color:#fff;font-weight:700;display:flex;align-items:center;gap:12px}
+    header .brand{font-size:1.2rem}
+    header .sub{font-weight:400;font-size:0.9rem;opacity:0.95}
+    main{max-width:1200px;margin:20px auto;padding:18px;width:calc(100% - 40px);display:grid;grid-template-columns:320px 1fr;gap:18px}
+
+    /* left panel */
+    .panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
+    .controls{display:flex;flex-direction:column;gap:10px}
+    .controls label{font-size:0.85rem;color:var(--muted)}
+    .controls input{padding:10px;border-radius:10px;border:1px solid #e6e7ee;font-size:0.95rem}
+    .row{display:flex;gap:8px}
+    .btn{padding:10px 12px;border-radius:10px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-weight:600}
+    .btn.secondary{background:#f3f4f6;color:var(--text);border:1px solid #e6e7ee}
+    .small{font-size:0.85rem;color:var(--muted)}
+
+    /* participants */
+    .participants{margin-top:12px}
+    .participant{display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fbfdff;border-radius:10px;margin-bottom:8px}
+    .participant .meta{display:flex;gap:10px;align-items:center}
+    .avatar{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#e2e8f0,#fff);display:flex;align-items:center;justify-content:center;font-weight:700}
+    .p-actions button{margin-left:6px;padding:6px 8px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer}
+
+    /* main area */
+    #jitsi-container{border-radius:var(--radius);overflow:hidden;background:#000;min-height:560px}
+    .topbar{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    .toolbar{display:flex;gap:8px}
+    .status{margin-left:auto;color:var(--muted)}
+
+    footer{max-width:1200px;margin:12px auto 30px;padding:12px;text-align:center;color:var(--muted);font-size:0.9rem}
+
+    @media(max-width:980px){main{grid-template-columns:1fr;padding:12px} .participants{order:2}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">SBS Board Meeting Room</div>
+    <div class="sub">Secure board meetings — powered by Jitsi</div>
+  </header>
+
+  <main>
+    <div class="panel">
+      <div class="controls">
+        <label>Room name</label>
+        <input id="roomName" placeholder="board-session-2025" />
+        <label>Display name <span style="color:#e11d48">(required)</span></label>
+        <input id="displayName" placeholder="Your full name" />
+        <label>Optional password</label>
+        <input id="password" placeholder="set meeting password (optional)" />
+
+        <div class="row">
+          <button id="startBtn" class="btn">Start / Join</button>
+          <button id="leaveBtn" class="btn secondary" disabled>Leave</button>
+        </div>
+
+        <div class="row">
+          <button id="copyLinkBtn" class="btn secondary">Copy Room Link</button>
+          <button id="refreshListBtn" class="btn secondary">Refresh Participants</button>
+        </div>
+
+        <div style="margin-top:10px" class="small">Moderation panel below shows participant controls. Actions will only succeed if the current user has moderator rights (self-hosted Jitsi or JaaS/JWT). If an action fails the UI will show the error message.</div>
+
+        <div class="participants" id="participantsList" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="topbar">
+        <div class="toolbar">
+          <button id="muteBtn" class="btn secondary" disabled>Mute/Unmute (local)</button>
+          <button id="videoBtn" class="btn secondary" disabled>Toggle Video</button>
+          <button id="screenBtn" class="btn secondary" disabled>Share Screen</button>
+          <button id="recordBtn" class="btn secondary" disabled>Start/Stop Recording</button>
+        </div>
+        <div class="status"><span id="status">Idle</span></div>
+      </div>
+
+      <div id="jitsi-container"></div>
+    </div>
+  </main>
+
+  <footer>© 2025 SBS Board — For full moderator & co-host controls self-host or use JaaS (guide included below).</footer>
+
+  <script src="https://meet.jit.si/external_api.js"></script>
+  <script>
+    // SBS Board Meeting — enhanced integration
+    // Notes:
+    // - This UI enables the full toolbar (screen share, chat, recording, etc.) via interfaceConfigOverwrite.
+    // - Moderator actions (mute other participants, kick, promote) require moderator privileges from the Jitsi server.
+    //   That means you must self-host Jitsi or use a JaaS/JWT-enabled deployment and issue tokens that grant moderator.
+    // - The code attempts moderation commands and catches failures so the UI remains stable on meet.jit.si.
+
+    const domain = 'meet.jit.si';
+    const container = document.getElementById('jitsi-container');
+    const startBtn = document.getElementById('startBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const videoBtn = document.getElementById('videoBtn');
+    const screenBtn = document.getElementById('screenBtn');
+    const recordBtn = document.getElementById('recordBtn');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    const refreshListBtn = document.getElementById('refreshListBtn');
+    const participantsList = document.getElementById('participantsList');
+    const statusSpan = document.getElementById('status');
+
+    let api = null;
+    let isMuted = false;
+    let isRecording = false;
+
+    function setStatus(s){ statusSpan.textContent = s; }
+
+    function buildRoomUrl(room){ const url = new URL(location.href); url.searchParams.set('room', room); return url.toString(); }
+
+    async function startConference(){
+      const roomInput = document.getElementById('roomName').value.trim();
+      const displayName = document.getElementById('displayName').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if(!displayName){ alert('Display name required — anonymous access is not allowed.'); return; }
+
+      const room = roomInput || (`sbs-board-${Math.random().toString(36).slice(2,9)}`);
+      container.innerHTML = '';
+
+      const options = {
+        roomName: room,
+        parentNode: container,
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+          enableWelcomePage: false
+        },
+        interfaceConfigOverwrite: {
+          // full toolbar
+          TOOLBAR_BUTTONS: [
+            'microphone','camera','closedcaptions','desktop','embedmeeting','fullscreen','fodeviceselection','hangup','profile','chat',
+            'recording','livestreaming','etherpad','sharedvideo','settings','raisehand','videoquality','filmstrip','invite','stats','shortcuts',
+            'tileview','select-background','download','participants-pane','security'
+          ]
+        }
+      };
+
+      // If you're using JWT tokens with a self-hosted server or JaaS, pass `jwt: '<TOKEN>'` in options.
+      // Example: options.jwt = '<your_jwt_token>'
+
+      api = new JitsiMeetExternalAPI(domain, options);
+
+      api.addEventListener('videoConferenceJoined', () => {
+        setStatus('Joined ' + room);
+        api.executeCommand('displayName', displayName);
+
+        if(password){ try{ api.executeCommand('password', password); }catch(e){ console.warn('password failed', e); } }
+
+        leaveBtn.disabled = false; muteBtn.disabled = false; videoBtn.disabled = false; screenBtn.disabled = false; recordBtn.disabled = false;
+
+        // initial populate
+        refreshParticipants();
+      });
+
+      api.addEventListener('participantJoined', () => { refreshParticipants(); });
+      api.addEventListener('participantLeft', () => { refreshParticipants(); });
+      api.addEventListener('audioMuteStatusChanged', (ev) => { isMuted = ev.muted; muteBtn.textContent = isMuted ? 'Unmute (local)' : 'Mute (local)'; });
+      api.addEventListener('recordingStatusChanged', (ev) => { isRecording = ev.isRecording || ev.on; recordBtn.textContent = isRecording ? 'Stop Recording' : 'Start Recording'; });
+
+      // update URL
+      history.replaceState({}, '', '?room=' + encodeURIComponent(room));
+    }
+
+    async function refreshParticipants(){
+      if(!api) return;
+      try{
+        // getParticipantsInfo is part of the external API functions list
+        const list = await api.getParticipantsInfo();
+        participantsList.innerHTML = '';
+        list.forEach(p => {
+          const el = document.createElement('div'); el.className = 'participant';
+          const meta = document.createElement('div'); meta.className = 'meta';
+          const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = (p.displayName||'U').slice(0,2).toUpperCase();
+          const name = document.createElement('div'); name.innerHTML = `<div style="font-weight:600">${p.displayName||p.id}</div><div class="small">id: ${p.participantId || p.id}</div>`;
+          meta.appendChild(avatar); meta.appendChild(name);
+          const actions = document.createElement('div'); actions.className = 'p-actions';
+
+          const muteOther = document.createElement('button'); muteOther.textContent = 'Mute'; muteOther.onclick = () => moderateAction('muteParticipant', p.participantId || p.id);
+          const kick = document.createElement('button'); kick.style.background='#f59e0b'; kick.textContent='Kick'; kick.onclick = () => moderateAction('kickParticipant', p.participantId || p.id);
+          const giveMod = document.createElement('button'); giveMod.style.background='#10b981'; giveMod.textContent='Make Mod'; giveMod.onclick = () => moderateAction('grantModerator', p.participantId || p.id);
+
+          actions.appendChild(muteOther); actions.appendChild(kick); actions.appendChild(giveMod);
+          el.appendChild(meta); el.appendChild(actions);
+          participantsList.appendChild(el);
+        });
+      }catch(err){ console.warn('refresh participants failed', err); participantsList.innerHTML = '<div class="small">Unable to read participants — this works best on self-hosted Jitsi or JaaS with APIs enabled.</div>'; }
+    }
+
+    async function moderateAction(action, id){
+      if(!api){ alert('Not connected'); return; }
+      try{
+        // many server-side moderation commands require the caller to be moderator.
+        // We'll attempt common commands; if the server doesn't support them an error will be raised.
+        if(action === 'muteParticipant'){
+          await api.executeCommand('muteParticipant', id);
+        }else if(action === 'kickParticipant'){
+          await api.executeCommand('kickParticipant', id);
+        }else if(action === 'grantModerator'){
+          // Not a standard executeCommand name; on self-hosted setups you would use token-based moderator or server RPCs.
+          await api.executeCommand('addModerator', id);
+        }
+        // refresh UI after action
+        setTimeout(refreshParticipants, 800);
+      }catch(e){
+        console.error('moderation failed', e); alert('Action failed. You probably need moderator privileges or a self-hosted/JaaS deployment.');
+      }
+    }
+
+    // local controls
+    startBtn.addEventListener('click', () => { if(api){ container.scrollIntoView({behavior:'smooth'}); return; } setStatus('Starting...'); startConference(); });
+    leaveBtn.addEventListener('click', () => { if(!api) return; api.executeCommand('hangup'); setStatus('Left'); try{ api.dispose(); }catch(e){} api=null; leaveBtn.disabled=true; muteBtn.disabled=true; videoBtn.disabled=true; screenBtn.disabled=true; recordBtn.disabled=true; });
+    muteBtn.addEventListener('click', () => { if(!api) return; api.executeCommand('toggleAudio'); });
+    videoBtn.addEventListener('click', () => { if(!api) return; api.executeCommand('toggleVideo'); });
+    screenBtn.addEventListener('click', () => { if(!api) return; api.executeCommand('toggleShareScreen'); });
+    recordBtn.addEventListener('click', () => { if(!api) return; api.executeCommand('toggleRecording'); });
+    copyLinkBtn.addEventListener('click', () => { const rn = document.getElementById('roomName').value.trim(); const room = rn || new URL(location.href).searchParams.get('room') || ''; if(!room){ alert('Please enter or start a room first'); return; } const url = buildRoomUrl(room); navigator.clipboard.writeText(url).then(()=>{ copyLinkBtn.textContent = 'Copied!'; setTimeout(()=>copyLinkBtn.textContent='Copy Room Link',1200); }); });
+    refreshListBtn.addEventListener('click', refreshParticipants);
+
+    window.addEventListener('beforeunload', () => { if(api) try{ api.dispose(); }catch(e){} });
+  </script>
+
+  <!--
+    SELF-HOST / JWT NOTES (for repo README):
+    1) To get full moderator / co-host power, either self-host Jitsi Meet or use JaaS (8x8) and enable JWT-based auth.
+    2) Self-host steps (short): install jitsi-meet on an Ubuntu server, configure Prosody to use JWT token verification, add app_id/app_secret in /etc/prosody/conf.avail/your-domain.cfg.lua, enable token module, update /etc/jitsi/meet/your-domain-config.js to accept tokens.
+    3) Token payload can include a "context.user.moderator": true flag to appoint moderators — but be careful: the first participant to join may become moderator if tokens are misconfigured.
+    4) For detailed step-by-step guides see the official Jitsi handbook and JWT setup articles.
+  -->
+</body>
+</html>
