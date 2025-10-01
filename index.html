@@ -6,12 +6,12 @@
 <title>SBS Board Meeting</title>
 <style>
 body{margin:0;font-family:Inter,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#eef2ff;}
-#landing{display:flex;flex-direction:column;align-items:center;gap:12px;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.1);max-width:320px;text-align:center;}
+#landing{display:flex;flex-direction:column;align-items:center;gap:12px;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.1);max-width:360px;text-align:center;}
 input{padding:12px 14px;border-radius:12px;border:1px solid #ccc;font-size:1rem;width:100%;}
 button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:1rem;cursor:pointer;font-weight:600;width:100%;}
 #jitsi-container{width:100vw;height:100vh;display:none;position:fixed;top:0;left:0;}
-#linkOutput{word-break:break-all;color:#2563eb;font-size:0.9rem;}
-#copyBtn{padding:10px 20px;margin-top:6px;background:#10b981;color:#fff;border:none;border-radius:12px;cursor:pointer;}
+#linkOutput{word-break:break-all;color:#2563eb;font-size:0.9rem;margin-top:8px;}
+#copyBtn{padding:10px 20px;margin-top:6px;background:#10b981;color:#fff;border:none;border-radius:12px;cursor:pointer;display:none;}
 </style>
 </head>
 <body>
@@ -22,7 +22,7 @@ button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color
   <input id="roomInput" placeholder="Enter a room name (host only)"/>
   <button id="generateLinkBtn">Generate Meeting Link</button>
   <div id="linkOutput"></div>
-  <button id="copyBtn" style="display:none;">Copy Link</button>
+  <button id="copyBtn">Copy Link</button>
   <button id="joinBtn" style="display:none">Join Meeting</button>
 </div>
 
@@ -30,29 +30,37 @@ button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color
 
 <script src="https://meet.jit.si/external_api.js"></script>
 <script>
-const landing = document.getElementById('landing');
-const container = document.getElementById('jitsi-container');
-const displayNameInput = document.getElementById('displayName');
-const roomInput = document.getElementById('roomInput');
-const generateLinkBtn = document.getElementById('generateLinkBtn');
-const joinBtn = document.getElementById('joinBtn');
-const linkOutput = document.getElementById('linkOutput');
-const copyBtn = document.getElementById('copyBtn');
+// Elements
+const landing=document.getElementById('landing');
+const container=document.getElementById('jitsi-container');
+const displayNameInput=document.getElementById('displayName');
+const roomInput=document.getElementById('roomInput');
+const generateLinkBtn=document.getElementById('generateLinkBtn');
+const joinBtn=document.getElementById('joinBtn');
+const linkOutput=document.getElementById('linkOutput');
+const copyBtn=document.getElementById('copyBtn');
 
-let roomName = null;
+let roomName=null;
+let hostToken=null; // used to mark first user as host
 
-// Check if participant opened a shared link
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get("room");
-const nameParam = urlParams.get("name");
+// URL params
+const urlParams=new URLSearchParams(window.location.search);
+const roomParam=urlParams.get("room");
+const nameParam=urlParams.get("name");
+const hostParam=urlParams.get("host");
 
+// Init Jitsi
 function initJitsi(room, displayName){
   landing.style.display='none';
   container.style.display='block';
   const options={
     roomName:room,
     parentNode:container,
-    configOverwrite:{startWithAudioMuted:false,startWithVideoMuted:false},
+    configOverwrite:{
+      startWithAudioMuted:false,
+      startWithVideoMuted:false,
+      disableDeepLinking:true
+    },
     interfaceConfigOverwrite:{
       SHOW_JITSI_WATERMARK:false,
       SHOW_WATERMARK_FOR_GUESTS:false,
@@ -68,41 +76,40 @@ function initJitsi(room, displayName){
   api.executeCommand('displayName',displayName);
 }
 
-// Host generates unique meeting link
-generateLinkBtn.addEventListener('click', () => {
-  const displayName = displayNameInput.value.trim();
-  const room = roomInput.value.trim();
-  if(!displayName || !room){ alert("Enter your name and room name"); return; }
-  roomName = room;
-  const link = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(displayName)}`;
-  linkOutput.textContent = "Share this link with participants:\n" + link;
+// Host generates link
+generateLinkBtn.addEventListener('click',()=>{
+  const displayName=displayNameInput.value.trim();
+  const room=roomInput.value.trim();
+  if(!displayName || !room){ alert("Enter your name and room name"); return;}
+  roomName=room;
+  hostToken=Math.random().toString(36).substr(2,8); // generate a host token
+  const link=`${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(displayName)}&host=${hostToken}`;
+  linkOutput.textContent="Share this link with participants:\n"+link;
   joinBtn.style.display='block';
   copyBtn.style.display='inline-block';
-  copyBtn.dataset.link = link;
+  copyBtn.dataset.link=link;
 });
 
-// Copy link button
-copyBtn.addEventListener('click', ()=>{
-  const link = copyBtn.dataset.link;
-  navigator.clipboard.writeText(link).then(()=>{
-    alert('Meeting link copied to clipboard!');
-  }).catch(err=>{
-    alert('Failed to copy link: ' + err);
-  });
+// Copy link
+copyBtn.addEventListener('click',()=>{
+  const link=copyBtn.dataset.link;
+  navigator.clipboard.writeText(link).then(()=>alert('Meeting link copied!')).catch(err=>alert('Copy failed: '+err));
 });
 
-// Join meeting (host or participant)
-joinBtn.addEventListener('click', ()=>{
-  const displayName = displayNameInput.value.trim();
-  if(!displayName){ alert("Enter your name"); return; }
-  const room = roomName || roomParam;
+// Join meeting
+joinBtn.addEventListener('click',()=>{
+  const displayName=displayNameInput.value.trim();
+  if(!displayName){ alert("Enter your name"); return;}
+  const room=roomName || roomParam;
   initJitsi(room, displayName);
 });
 
 // Auto-join if link used
 if(roomParam && nameParam){
-  displayNameInput.value = nameParam;
-  initJitsi(roomParam, nameParam);
+  displayNameInput.value=nameParam;
+  // Save host token locally if available
+  if(hostParam) hostToken=hostParam;
+  initJitsi(roomParam,nameParam);
 }
 </script>
 
