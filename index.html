@@ -1,199 +1,73 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SBS Board Meeting Room</title>
-  <style>
-    :root {
-      --primary: #2563eb;
-      --accent: #7c3aed;
-      --bg: linear-gradient(180deg,#f8fafc, #eef2ff);
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #6b7280;
-      --radius: 14px;
-      --shadow: 0 10px 30px rgba(15,23,42,0.08);
-      font-family: Inter, 'Segoe UI', Roboto, system-ui, -apple-system, 'Helvetica Neue', Arial;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
-    header{padding:18px 28px;background:linear-gradient(90deg,var(--primary),var(--accent));color:#fff;font-weight:700;display:flex;align-items:center;gap:12px}
-    header .brand{font-size:1.2rem}
-    header .sub{font-weight:400;font-size:0.9rem;opacity:0.95}
-    main{max-width:1200px;margin:20px auto;padding:18px;width:calc(100% - 40px);display:grid;grid-template-columns:320px 1fr;gap:18px}
-
-    .panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
-    .controls{display:flex;flex-direction:column;gap:10px}
-    .controls label{font-size:0.85rem;color:var(--muted)}
-    .controls input{padding:10px;border-radius:10px;border:1px solid #e6e7ee;font-size:0.95rem}
-    .row{display:flex;gap:8px}
-    .btn{padding:10px 12px;border-radius:10px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-weight:600}
-    .btn.secondary{background:#f3f4f6;color:var(--text);border:1px solid #e6e7ee}
-    .small{font-size:0.85rem;color:var(--muted)}
-
-    .participants{margin-top:12px}
-    .participant{display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fbfdff;border-radius:10px;margin-bottom:8px}
-    .participant .meta{display:flex;gap:10px;align-items:center}
-    .avatar{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#e2e8f0,#fff);display:flex;align-items:center;justify-content:center;font-weight:700}
-    .p-actions button{margin-left:6px;padding:6px 8px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer}
-
-    #jitsi-container {
-      border-radius: var(--radius);
-      overflow: hidden;
-      min-height: 560px;
-      height: 80vh;
-    }
-    #jitsi-container iframe {
-      width: 100% !important;
-      height: 100% !important;
-      border: 0;
-    }
-
-    .topbar{display:flex;gap:12px;align-items:center;margin-bottom:12px}
-    .toolbar{display:flex;gap:8px}
-    .status{margin-left:auto;color:var(--muted)}
-
-    footer{max-width:1200px;margin:12px auto 30px;padding:12px;text-align:center;color:var(--muted);font-size:0.9rem}
-
-    #landing p#meetingNotice{display:none; color:red; font-weight:bold; margin-bottom:10px;}
-
-    @media(max-width:980px){main{grid-template-columns:1fr;padding:12px} .participants{order:2}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SBS Board Meeting</title>
+<style>
+body{margin:0;font-family:Inter,sans-serif;background:#eef2ff;}
+#landing{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px;}
+input{padding:12px 14px;border-radius:12px;border:1px solid #ccc;font-size:1rem;width:220px;}
+button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:1rem;cursor:pointer;font-weight:600;}
+#jitsi-container{width:100vw;height:100vh;position:fixed;top:0;left:0;z-index:1;display:none;}
+#overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;display:flex;justify-content:center;align-items:center;z-index:2;}
+#overlay button{font-size:1.5rem;padding:16px 32px;width:220px;}
+</style>
 </head>
 <body>
-  <header>
-    <div class="brand">SBS Board Meeting Room</div>
-    <div class="sub">Secure board meetings — powered by Jitsi</div>
-  </header>
 
-  <main>
-    <div class="panel" id="landing">
-      <h2>Welcome</h2>
-      <p id="meetingNotice"></p>
-      <input type="text" id="roomName" placeholder="Enter Room Name" />
-      <input type="text" id="displayName" placeholder="Enter Your Name" />
-      <div class="row">
-        <button id="startBtn" class="btn" onclick="startMeeting()">Start Meeting</button>
-        <button id="joinBtn" class="btn secondary" onclick="joinMeeting()">Join Meeting</button>
-      </div>
-    </div>
+<div id="landing">
+  <input id="displayName" placeholder="Enter your name"/>
+  <button id="joinBtn">Join</button>
+</div>
 
-    <div>
-      <div class="topbar">
-        <div class="toolbar">
-          <button id="muteBtn" class="btn secondary" disabled>Mute/Unmute (local)</button>
-          <button id="videoBtn" class="btn secondary" disabled>Toggle Video</button>
-          <button id="screenBtn" class="btn secondary" disabled>Share Screen</button>
-          <button id="recordBtn" class="btn secondary" disabled>Start/Stop Recording</button>
-        </div>
-        <div class="status"><span id="status">Idle</span></div>
-      </div>
+<div id="jitsi-container"></div>
+<div id="overlay" style="display:none;">
+  <button id="overlayJoinBtn">Join in Browser</button>
+</div>
 
-      <div id="jitsi-container"></div>
-    </div>
-  </main>
+<script src="https://meet.jit.si/external_api.js"></script>
+<script>
+const landing=document.getElementById('landing');
+const joinBtn=document.getElementById('joinBtn');
+const displayNameInput=document.getElementById('displayName');
+const container=document.getElementById('jitsi-container');
+const overlay=document.getElementById('overlay');
+const overlayJoinBtn=document.getElementById('overlayJoinBtn');
 
-  <footer>© 2025 SBS Board — For full moderator & co-host controls, self-host or use JaaS.</footer>
+let api=null;
+let displayName='';
 
-  <script src="https://meet.jit.si/external_api.js"></script>
-  <script>
-    const domain = 'meet.jit.si';
-    const container = document.getElementById('jitsi-container');
-    const startBtn = document.getElementById('startBtn');
-    const joinBtn = document.getElementById('joinBtn');
-    const muteBtn = document.getElementById('muteBtn');
-    const videoBtn = document.getElementById('videoBtn');
-    const screenBtn = document.getElementById('screenBtn');
-    const recordBtn = document.getElementById('recordBtn');
-    const statusSpan = document.getElementById('status');
-    let api = null;
+joinBtn.addEventListener('click',()=>{
+  displayName=displayNameInput.value.trim();
+  if(!displayName){alert('Enter your name'); return;}
+  landing.style.display='none';
+  container.style.display='block';
+  overlay.style.display='flex';
+});
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomParam = urlParams.get("room");
-
-    function setStatus(s){ statusSpan.textContent = s; }
-
-    function initJitsi(room, displayName){
-      container.innerHTML='';
-      const options = {
-        roomName: room,
-        parentNode: container,
-        configOverwrite: { startWithAudioMuted:false, startWithVideoMuted:false },
-        interfaceConfigOverwrite: {
-          TOOLBAR_BUTTONS: [
-            'microphone','camera','desktop','fullscreen','chat','recording',
-            'livestreaming','etherpad','settings','raisehand','videoquality',
-            'tileview','participants-pane','security'
-          ]
-        }
-      };
-      api = new JitsiMeetExternalAPI(domain, options);
-
-      api.addEventListener('videoConferenceJoined', () => {
-        setStatus('Joined ' + room);
-        api.executeCommand('displayName', displayName);
-        leaveBtn.disabled = muteBtn.disabled = videoBtn.disabled = screenBtn.disabled = recordBtn.disabled = false;
-      });
-
-      api.addEventListener('readyToClose', () => endMeeting());
+overlayJoinBtn.addEventListener('click',()=>{
+  overlay.style.display='none';
+  const room='sbs-board-meeting';
+  const options={
+    roomName:room,
+    parentNode:container,
+    configOverwrite:{startWithAudioMuted:false,startWithVideoMuted:false},
+    interfaceConfigOverwrite:{
+      SHOW_JITSI_WATERMARK:false,
+      SHOW_WATERMARK_FOR_GUESTS:false,
+      HIDE_DEEP_LINKING_LOGO:true,
+      TOOLBAR_BUTTONS:[
+        'microphone','camera','desktop','fullscreen','hangup','chat',
+        'recording','etherpad','sharedvideo','settings','raisehand',
+        'videoquality','tileview','participants-pane','livestreaming','security'
+      ]
     }
+  };
+  api=new JitsiMeetExternalAPI('meet.jit.si',options);
+  api.executeCommand('displayName',displayName);
+});
+</script>
 
-    function startMeeting() {
-      const roomName = document.getElementById("roomName").value.trim();
-      const displayName = document.getElementById("displayName").value.trim();
-      if(!roomName || !displayName){ alert("Please enter both Room Name and Display Name"); return; }
-
-      localStorage.setItem("meetingActive","true");
-      window.location.href = window.location.origin + window.location.pathname + "?room=" + encodeURIComponent(roomName) + "&name=" + encodeURIComponent(displayName);
-    }
-
-    function joinMeeting(){
-      const displayName = document.getElementById("displayName").value.trim();
-      if(!displayName){ alert("Please enter your Display Name"); return; }
-      initJitsi(roomParam, displayName);
-      document.getElementById("landing").style.display="none";
-    }
-
-    function endMeeting(){
-      localStorage.removeItem("meetingActive");
-      window.location.href = window.location.origin + window.location.pathname;
-    }
-
-    window.onload = ()=>{
-      if(roomParam){
-        // guest via link
-        document.getElementById("roomName").style.display="none";
-        startBtn.style.display="none";
-        joinBtn.style.display="inline-block";
-        const nameParam = urlParams.get("name");
-        if(nameParam){ document.getElementById("displayName").value=nameParam; joinMeeting(); }
-      } else {
-        // landing page
-        if(localStorage.getItem("meetingActive")==="true"){
-          document.getElementById("roomName").style.display="none";
-          document.getElementById("displayName").style.display="none";
-          startBtn.style.display="none";
-          joinBtn.style.display="none";
-          document.getElementById("meetingNotice").style.display="block";
-          document.getElementById("meetingNotice").innerText = "⚠ A meeting is currently in progress. Please wait until it ends.";
-        } else {
-          joinBtn.style.display="none";
-        }
-      }
-    };
-
-    // Local controls
-    const leaveBtn = document.createElement("button");
-    leaveBtn.textContent="Leave Meeting"; leaveBtn.className="btn secondary";
-    leaveBtn.disabled=true;
-    leaveBtn.onclick=()=>{ if(api){ api.executeCommand('hangup'); api.dispose(); api=null; setStatus('Left'); leaveBtn.disabled=true; endMeeting(); } };
-    document.body.appendChild(leaveBtn);
-
-    muteBtn.onclick=()=>{ if(api) api.executeCommand('toggleAudio'); }
-    videoBtn.onclick=()=>{ if(api) api.executeCommand('toggleVideo'); }
-    screenBtn.onclick=()=>{ if(api) api.executeCommand('toggleShareScreen'); }
-    recordBtn.onclick=()=>{ if(api) api.executeCommand('toggleRecording'); }
-  </script>
 </body>
 </html>
