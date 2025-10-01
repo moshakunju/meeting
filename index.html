@@ -30,7 +30,6 @@ button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color
 
 <script src="https://meet.jit.si/external_api.js"></script>
 <script>
-// Elements
 const landing=document.getElementById('landing');
 const container=document.getElementById('jitsi-container');
 const displayNameInput=document.getElementById('displayName');
@@ -41,15 +40,13 @@ const linkOutput=document.getElementById('linkOutput');
 const copyBtn=document.getElementById('copyBtn');
 
 let roomName=null;
-let hostToken=null; // used to mark first user as host
 
 // URL params
 const urlParams=new URLSearchParams(window.location.search);
 const roomParam=urlParams.get("room");
 const nameParam=urlParams.get("name");
-const hostParam=urlParams.get("host");
 
-// Init Jitsi
+// Initialize Jitsi
 function initJitsi(room, displayName){
   landing.style.display='none';
   container.style.display='block';
@@ -59,7 +56,8 @@ function initJitsi(room, displayName){
     configOverwrite:{
       startWithAudioMuted:false,
       startWithVideoMuted:false,
-      disableDeepLinking:true
+      disableDeepLinking:true,
+      enableUserRolesBasedOnToken:false // allows anyone to be moderator
     },
     interfaceConfigOverwrite:{
       SHOW_JITSI_WATERMARK:false,
@@ -72,32 +70,31 @@ function initJitsi(room, displayName){
       ]
     }
   };
-  const api=new JitsiMeetExternalAPI('meet.jit.si',options);
-  api.executeCommand('displayName',displayName);
+  const api=new JitsiMeetExternalAPI('meet.jit.si', options);
+  api.executeCommand('displayName', displayName);
 }
 
-// Host generates link
-generateLinkBtn.addEventListener('click',()=>{
+// Generate meeting link
+generateLinkBtn.addEventListener('click', ()=>{
   const displayName=displayNameInput.value.trim();
   const room=roomInput.value.trim();
   if(!displayName || !room){ alert("Enter your name and room name"); return;}
   roomName=room;
-  hostToken=Math.random().toString(36).substr(2,8); // generate a host token
-  const link=`${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(displayName)}&host=${hostToken}`;
+  const link=`${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(displayName)}`;
   linkOutput.textContent="Share this link with participants:\n"+link;
   joinBtn.style.display='block';
   copyBtn.style.display='inline-block';
   copyBtn.dataset.link=link;
 });
 
-// Copy link
-copyBtn.addEventListener('click',()=>{
+// Copy link button
+copyBtn.addEventListener('click', ()=>{
   const link=copyBtn.dataset.link;
   navigator.clipboard.writeText(link).then(()=>alert('Meeting link copied!')).catch(err=>alert('Copy failed: '+err));
 });
 
 // Join meeting
-joinBtn.addEventListener('click',()=>{
+joinBtn.addEventListener('click', ()=>{
   const displayName=displayNameInput.value.trim();
   if(!displayName){ alert("Enter your name"); return;}
   const room=roomName || roomParam;
@@ -107,9 +104,7 @@ joinBtn.addEventListener('click',()=>{
 // Auto-join if link used
 if(roomParam && nameParam){
   displayNameInput.value=nameParam;
-  // Save host token locally if available
-  if(hostParam) hostToken=hostParam;
-  initJitsi(roomParam,nameParam);
+  initJitsi(roomParam, nameParam);
 }
 </script>
 
