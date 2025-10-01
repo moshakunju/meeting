@@ -11,6 +11,7 @@ input{padding:12px 14px;border-radius:12px;border:1px solid #ccc;font-size:1rem;
 button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:1rem;cursor:pointer;font-weight:600;width:100%;}
 #jitsi-container{width:100vw;height:100vh;display:none;position:fixed;top:0;left:0;}
 #linkOutput{word-break:break-all;color:#2563eb;font-size:0.9rem;}
+#copyBtn{padding:10px 20px;margin-top:6px;background:#10b981;color:#fff;border:none;border-radius:12px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -21,6 +22,7 @@ button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color
   <input id="roomInput" placeholder="Enter a room name (host only)"/>
   <button id="generateLinkBtn">Generate Meeting Link</button>
   <div id="linkOutput"></div>
+  <button id="copyBtn" style="display:none;">Copy Link</button>
   <button id="joinBtn" style="display:none">Join Meeting</button>
 </div>
 
@@ -35,6 +37,7 @@ const roomInput = document.getElementById('roomInput');
 const generateLinkBtn = document.getElementById('generateLinkBtn');
 const joinBtn = document.getElementById('joinBtn');
 const linkOutput = document.getElementById('linkOutput');
+const copyBtn = document.getElementById('copyBtn');
 
 let roomName = null;
 
@@ -74,6 +77,18 @@ generateLinkBtn.addEventListener('click', () => {
   const link = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(displayName)}`;
   linkOutput.textContent = "Share this link with participants:\n" + link;
   joinBtn.style.display='block';
+  copyBtn.style.display='inline-block';
+  copyBtn.dataset.link = link;
+});
+
+// Copy link button
+copyBtn.addEventListener('click', ()=>{
+  const link = copyBtn.dataset.link;
+  navigator.clipboard.writeText(link).then(()=>{
+    alert('Meeting link copied to clipboard!');
+  }).catch(err=>{
+    alert('Failed to copy link: ' + err);
+  });
 });
 
 // Join meeting (host or participant)
