@@ -5,50 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SBS Board Meeting</title>
 <style>
-body{margin:0;font-family:Inter,sans-serif;background:#eef2ff;}
-#landing{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px;}
-input{padding:12px 14px;border-radius:12px;border:1px solid #ccc;font-size:1rem;width:220px;}
-button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:1rem;cursor:pointer;font-weight:600;}
-#jitsi-container{width:100vw;height:100vh;position:fixed;top:0;left:0;z-index:1;display:none;}
-#overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;display:flex;justify-content:center;align-items:center;z-index:2;}
-#overlay button{font-size:1.5rem;padding:16px 32px;width:220px;}
+body{margin:0;font-family:Inter,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#eef2ff;}
+#landing{display:flex;flex-direction:column;align-items:center;gap:12px;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.1);max-width:320px;text-align:center;}
+input{padding:12px 14px;border-radius:12px;border:1px solid #ccc;font-size:1rem;width:100%;}
+button{padding:12px 24px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:1rem;cursor:pointer;font-weight:600;width:100%;}
+#jitsi-container{width:100vw;height:100vh;display:none;position:fixed;top:0;left:0;}
+#linkOutput{word-break:break-all;color:#2563eb;font-size:0.9rem;}
 </style>
 </head>
 <body>
 
 <div id="landing">
+  <h2>SBS Board Meeting</h2>
   <input id="displayName" placeholder="Enter your name"/>
-  <button id="joinBtn">Join</button>
+  <input id="roomInput" placeholder="Enter a room name (host only)"/>
+  <button id="generateLinkBtn">Generate Meeting Link</button>
+  <div id="linkOutput"></div>
+  <button id="joinBtn" style="display:none">Join Meeting</button>
 </div>
 
 <div id="jitsi-container"></div>
-<div id="overlay" style="display:none;">
-  <button id="overlayJoinBtn">Join in Browser</button>
-</div>
 
 <script src="https://meet.jit.si/external_api.js"></script>
 <script>
-const landing=document.getElementById('landing');
-const joinBtn=document.getElementById('joinBtn');
-const displayNameInput=document.getElementById('displayName');
-const container=document.getElementById('jitsi-container');
-const overlay=document.getElementById('overlay');
-const overlayJoinBtn=document.getElementById('overlayJoinBtn');
+const landing = document.getElementById('landing');
+const container = document.getElementById('jitsi-container');
+const displayNameInput = document.getElementById('displayName');
+const roomInput = document.getElementById('roomInput');
+const generateLinkBtn = document.getElementById('generateLinkBtn');
+const joinBtn = document.getElementById('joinBtn');
+const linkOutput = document.getElementById('linkOutput');
 
-let api=null;
-let displayName='';
+let roomName = null;
 
-joinBtn.addEventListener('click',()=>{
-  displayName=displayNameInput.value.trim();
-  if(!displayName){alert('Enter your name'); return;}
+// Check if participant opened a shared link
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get("room");
+const nameParam = urlParams.get("name");
+
+function initJitsi(room, displayName){
   landing.style.display='none';
   container.style.display='block';
-  overlay.style.display='flex';
-});
-
-overlayJoinBtn.addEventListener('click',()=>{
-  overlay.style.display='none';
-  const room='sbs-board-meeting';
   const options={
     roomName:room,
     parentNode:container,
@@ -64,9 +61,34 @@ overlayJoinBtn.addEventListener('click',()=>{
       ]
     }
   };
-  api=new JitsiMeetExternalAPI('meet.jit.si',options);
+  const api=new JitsiMeetExternalAPI('meet.jit.si',options);
   api.executeCommand('displayName',displayName);
+}
+
+// Host generates unique meeting link
+generateLinkBtn.addEventListener('click', () => {
+  const displayName = displayNameInput.value.trim();
+  const room = roomInput.value.trim();
+  if(!displayName || !room){ alert("Enter your name and room name"); return; }
+  roomName = room;
+  const link = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(displayName)}`;
+  linkOutput.textContent = "Share this link with participants:\n" + link;
+  joinBtn.style.display='block';
 });
+
+// Join meeting (host or participant)
+joinBtn.addEventListener('click', ()=>{
+  const displayName = displayNameInput.value.trim();
+  if(!displayName){ alert("Enter your name"); return; }
+  const room = roomName || roomParam;
+  initJitsi(room, displayName);
+});
+
+// Auto-join if link used
+if(roomParam && nameParam){
+  displayNameInput.value = nameParam;
+  initJitsi(roomParam, nameParam);
+}
 </script>
 
 </body>
